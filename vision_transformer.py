@@ -75,7 +75,7 @@ class Attention(nn.Module):
         self.scale = qk_scale or head_dim ** -0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop_rate = attn_drop  # plain float; nn.Dropout holds no state_dict entries
+        self.attn_drop_rate = attn_drop
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
@@ -84,14 +84,14 @@ class Attention(nn.Module):
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
-        with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):  # forced: no silent fallback
+        with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
             x = F.scaled_dot_product_attention(
                 q, k, v, dropout_p=self.attn_drop_rate if self.training else 0.0, scale=self.scale)
 
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
-        return x, None  # fused kernel exposes no attention weights; maps come from stock `main`
+        return x, None
 
 
 class Block(nn.Module):
